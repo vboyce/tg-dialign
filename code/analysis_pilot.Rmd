@@ -1,0 +1,78 @@
+---
+title: "4p dialign play"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message=F, warning=F)
+library(tidyverse)
+library(here)
+library(jsonlite)
+library(ggplot2)
+theme_set(theme_bw())
+```
+
+```{r}
+
+blah <- read_csv(here("processed/sourced_4p.csv"))
+
+
+blah |> select(Words) |> unique() |> View()
+```
+
+# Some normalization
+
+look at when things emerge & stick versus how common they are across games (~partner-specificity) & as a function of condition
+
+
+```{r}
+frequencies <- blah |> group_by(gameId, Words, tangram)  |> summarize(group_tangram=n()) |> 
+  group_by(gameId, Words) |> mutate(group_sum=sum(group_tangram)) |> group_by(Words, tangram) |> 
+  mutate(tangram_sum=sum(group_tangram)) |> group_by(Words) |> mutate(overall_sum=sum(group_tangram)) 
+                                                                     
+
+```
+
+```{r}
+
+blah |> left_join(frequencies) |> ggplot(aes(x=group_tangram/group_sum))+geom_density()
+blah |> left_join(frequencies) |> ggplot(aes(x=group_tangram/tangram_sum))+geom_density()
+blah |> left_join(frequencies) |> ggplot(aes(x=group_tangram/overall_sum))+geom_density()
+
+```
+so, some issues because we have mostly bimodal between unique to group/tangram or things that are fairly widespread, without a lot in the middle
+
+might make sense to binarize rather than do continuous, idk 
+
+```{r}
+
+
+blah |> left_join(frequencies) |> ggplot(aes(x=repNum, y=group_tangram/group_sum))+geom_point(alpha=.01)+stat_summary()
+
+blah |> left_join(frequencies) |> ggplot(aes(x=repNum, y=group_tangram/tangram_sum))+geom_point(alpha=.01)+stat_summary()
+
+blah |> left_join(frequencies) |> ggplot(aes(x=repNum, y=group_tangram/overall_sum))+geom_point(alpha=.01)+stat_summary()
+
+```
+
+Of things that occur in first round and are last seen in round x
+
+```{r}
+blah |> group_by(Words, tangram, gameId) |> mutate(first=min(repNum)) |> left_join(frequencies) |> filter(first==0) |> ggplot(aes(x=repNum, y=group_tangram/group_sum))+geom_point(alpha=.01)+stat_summary()
+```
+# lets look more at distribution
+
+```{r}
+
+blah |> group_by(Words) |> tally() |> arrange(desc(n))
+
+```
+# other ideas
+
+could use this to decrease the space of text and then hand annotate (or semi-hand-annotate) for body/position/holistic
+
+could look at self-variance and self-repetition : would need to re-run dialign with speaker/other for each permutation and average (these are metrics dialign returns)
+
+clip similiarity on phrases versus random baseline or versus whole utterance
+
+could look at timing of convention emergence as correlate of accuracy / reduction / by condition (like when do last round shared phrases emerge)
